@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BukkitQuery", "WindowsFormsApplication1\BukkitQuery.csproj", "{34B10B83-F2B9-40D8-A960-15F7C95F741C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BukkitQuery", "BukkitQuery\BukkitQuery.csproj", "{34B10B83-F2B9-40D8-A960-15F7C95F741C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
