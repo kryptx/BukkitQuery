@@ -1,0 +1,1 @@
+﻿<?xml version="1.0" encoding="utf-8"?><ArrayOfMinecraftServer xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema"><MinecraftServer><ServerName>Jason's Server!</ServerName><ServerAddress>192.168.1.100</ServerAddress><QueryPort>25566</QueryPort></MinecraftServer></ArrayOfMinecraftServer>
