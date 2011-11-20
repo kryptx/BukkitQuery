@@ -24,6 +24,7 @@ namespace BukkitQuery {
         }
 
         private void ValidateInputs(object sender, EventArgs e) {
+
             try {
                 if (IPAddressTextBox.Text.Trim().Length > 0 &&
                     ServerNameTextBox.Text.Trim().Length > 0 &&
@@ -45,6 +46,28 @@ namespace BukkitQuery {
         
         private void CancelAddServerButton_Click(object sender, EventArgs e) {
             this.Close();
+        }
+
+        private void ServerNameTextBox_Validating(object sender, CancelEventArgs e) {
+            AddServerErrorProvider.SetError(ServerNameTextBox,
+                (ServerNameTextBox.Text.Trim().Length == 0) ? "Please enter a name to describe this server." : null);
+        }
+
+        private void IPAddressTextBox_Validating(object sender, CancelEventArgs e) {
+            AddServerErrorProvider.SetError(IPAddressTextBox,
+                (IPAddressTextBox.Text.Trim().Length == 0) ? "Please enter the server's IP address or host name." : null);
+        }
+
+        private void MinequeryPortTextBox_Validating(object sender, CancelEventArgs e) {
+            try {
+                int port = Int32.Parse(MinequeryPortTextBox.Text);
+                if (port > 0) AddServerErrorProvider.SetError(MinequeryPortTextBox, null);
+                else AddServerErrorProvider.SetError(MinequeryPortTextBox, "Port must be greater than zero.");
+            } catch {
+                AddServerErrorProvider.SetError(
+                    MinequeryPortTextBox, "Please enter a numeric port number.");
+            }
+
         }
 
     }
