@@ -40,11 +40,6 @@ namespace BukkitQuery {
 
 
         private void AddServerButton_Click(object sender, EventArgs e) {
-            if (AddServerButton.Text == "Update Server") {
-                ((MainWindow)Owner).UpdateSelected(ServerNameTextBox.Text, IPAddressTextBox.Text, Int32.Parse(MinequeryPortTextBox.Text));
-            } else {
-                ((MainWindow)Owner).AddServer(ServerNameTextBox.Text, IPAddressTextBox.Text, Int32.Parse(MinequeryPortTextBox.Text));
-            }
             this.Close();
         }
         

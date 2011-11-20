@@ -71,16 +71,6 @@ namespace BukkitQuery {
             }
 
         }
-        
-
-        public void AddServer(string serverName, string serverAddress, int queryPort) {
-
-            MinecraftServer newServer = new MinecraftServer(serverName, serverAddress, queryPort);
-            ServersListBox.Items.Add(newServer);
-            SaveServerList();
-            RefreshServer(newServer);
-
-        }
 
         private void RefreshServer(MinecraftServer server) {
 
@@ -92,13 +82,6 @@ namespace BukkitQuery {
 
             // use a delegate method (with group syntax) for DoWork
             bgw.DoWork += UpdateServer_DoWork;
-
-            // use an anonymous method for RunWorkerCompleted, so we can use the server variable
-            /* bgw.RunWorkerCompleted += delegate(object sender, RunWorkerCompletedEventArgs e) {
-                ServersListBox.Refresh();
-                if(server == ServersListBox.SelectedItem)
-                    UpdateLabels();
-            }; */
 
             bgw.RunWorkerCompleted += (sender, e) => {
                 ServersListBox.Refresh();
@@ -112,8 +95,23 @@ namespace BukkitQuery {
 
 
         private void AddServerTool_Click(object sender, EventArgs e) {
+
             AddServerForm addServerForm = new AddServerForm();
-            addServerForm.ShowDialog(this);
+            DialogResult addResult = addServerForm.ShowDialog(this);
+            if (addResult == DialogResult.OK) {
+
+                MinecraftServer newServer = new MinecraftServer {
+                    ServerName = addServerForm.ServerNameTextBox.Text,
+                    ServerAddress = addServerForm.IPAddressTextBox.Text,
+                    QueryPort = Int32.Parse(addServerForm.MinequeryPortTextBox.Text)
+                };
+
+                ServersListBox.Items.Add(newServer);
+                SaveServerList();
+                RefreshServer(newServer);
+
+            }
+
         }
 
         private void ExitToolStripMenuItem_Click(object sender, EventArgs e) {
@@ -299,15 +297,13 @@ namespace BukkitQuery {
         private void EditToolStripButton_Click(object sender, EventArgs e) {
             MinecraftServer serverToEdit = ServersListBox.SelectedItem as MinecraftServer;
             AddServerForm addServerForm = new AddServerForm(serverToEdit.ServerName, serverToEdit.ServerAddress, serverToEdit.QueryPort);
-            addServerForm.ShowDialog(this);
-        }
-
-        public void UpdateSelected(string serverName, string serverAddress, int queryPort) {
-            MinecraftServer serverToEdit = ServersListBox.SelectedItem as MinecraftServer;
-            serverToEdit.ServerName = serverName;
-            serverToEdit.ServerAddress = serverAddress;
-            serverToEdit.QueryPort = queryPort;
-            RefreshServer(serverToEdit);
+            DialogResult editResult = addServerForm.ShowDialog(this);
+            if (editResult == DialogResult.OK) {
+                serverToEdit.ServerName = addServerForm.ServerNameTextBox.Text;
+                serverToEdit.ServerAddress = addServerForm.IPAddressTextBox.Text;
+                serverToEdit.QueryPort = Int32.Parse(addServerForm.MinequeryPortTextBox.Text);
+                RefreshServer(serverToEdit);
+            }
         }
 
         private void aboutMSQTToolStripMenuItem_Click(object sender, EventArgs e) {

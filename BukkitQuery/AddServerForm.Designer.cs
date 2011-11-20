@@ -87,6 +87,7 @@
             // 
             // AddServerButton
             // 
+            this.AddServerButton.DialogResult = System.Windows.Forms.DialogResult.OK;
             this.AddServerButton.Enabled = false;
             this.AddServerButton.Location = new System.Drawing.Point(143, 97);
             this.AddServerButton.Name = "AddServerButton";
@@ -138,12 +139,12 @@
         #endregion
 
         private System.Windows.Forms.Label ServerNameLabel;
-        private System.Windows.Forms.TextBox ServerNameTextBox;
-        private System.Windows.Forms.TextBox IPAddressTextBox;
-        private System.Windows.Forms.TextBox MinequeryPortTextBox;
         private System.Windows.Forms.Label HostNameLabel;
         private System.Windows.Forms.Label PortLabel;
         private System.Windows.Forms.Button AddServerButton;
         private System.Windows.Forms.Button CancelAddServerButton;
+        internal System.Windows.Forms.TextBox ServerNameTextBox;
+        internal System.Windows.Forms.TextBox IPAddressTextBox;
+        internal System.Windows.Forms.TextBox MinequeryPortTextBox;
     }
 }
