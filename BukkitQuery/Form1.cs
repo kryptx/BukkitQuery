@@ -5,12 +5,9 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Sockets;
 using System.Runtime.Serialization;
 using System.Text;
 using System.Windows.Forms;
-using System.Xml;
-using System.Xml.Serialization;
 
 using BukkitQuery.Components;
 
@@ -20,47 +17,18 @@ namespace BukkitQuery {
 
         public MainWindow() {
             InitializeComponent();
-            LoadServerList();
+            PopulateServersListBox();
             AttachEventListeners();  // is there a race condition here?
         }
 
+        private void PopulateServersListBox() {
 
-        private void LoadServerList() {
-
-            List<BukkitServer> servers = ReadServersFromXml();
-            PopulateServersListBox(servers);
-
-        }
-
-
-        private List<BukkitServer> ReadServersFromXml() {
-
-            try {
-                using (XmlTextReader reader = new XmlTextReader("servers.xml")) {
-
-                    XmlSerializer xml = new XmlSerializer(
-                        typeof(List<BukkitServer>),
-                        new Type[] { typeof(BukkitServer) }
-                    );
-
-                    return (List<BukkitServer>)xml.Deserialize(reader);
-
-                }
-
-            } catch (InvalidOperationException e) {
-                if (e.InnerException is FileNotFoundException) {
-                    return new List<BukkitServer>();
-                } else throw e;
-            }
-        }
-
-
-        private void PopulateServersListBox(List<BukkitServer> servers) {
+            List<BukkitServer> servers = BukkitServerDataReader.ReadServers();
 
             ServersListBox.Items.Clear();
             foreach (BukkitServer thisServer in servers) {
                 ServersListBox.Items.Add(thisServer);
-                RefreshServer(thisServer);
+                thisServer.Refresh();
             }
 
         }
@@ -128,23 +96,6 @@ namespace BukkitQuery {
 
 
 
-        private void RefreshServer(BukkitServer server) {
-
-            server.Status = BukkitServer.ServerStatus.Unknown;
-
-            var bgw = server.AttachedWorker = new BackgroundWorker();
-
-            bgw.DoWork += UpdateServer_DoWork;
-
-            bgw.RunWorkerCompleted += delegate {
-                ServersListBox.Refresh();
-            };
-
-            bgw.RunWorkerAsync(server);
-
-        }
-
-
         private void AddServerTool_Click(object sender, EventArgs e) {
 
             AddServerForm addServerForm = new AddServerForm();
@@ -161,7 +112,7 @@ namespace BukkitQuery {
 
                 ServersListBox.Items.Add(newServer);
                 SaveServerList();
-                RefreshServer(newServer);
+                newServer.Refresh();
 
             }
 
@@ -173,148 +124,136 @@ namespace BukkitQuery {
         }
 
 
-        private void UpdateServer_DoWork(object sender, DoWorkEventArgs e) {
-
-            // prepare local variables
-            BukkitServer server = (BukkitServer)e.Argument;
-            byte[] data = Encoding.ASCII.GetBytes("QUERY\n");
-            byte[] receiveBuffer = new byte[256];
-            string responseString = "";
-
-            // send the request, and receive the response
-            try {
-                using (TcpClient client = new TcpClient(server.ServerAddress, server.QueryPort)) {
-
-                    using (NetworkStream stream = client.GetStream()) {
-
-                        stream.Write(data, 0, data.Length);
-                        do {
-                            int bytes = stream.Read(receiveBuffer, 0, receiveBuffer.Length);
-                            responseString += Encoding.ASCII.GetString(receiveBuffer, 0, bytes);
-                            Array.Clear(receiveBuffer, 0, bytes);
-                        } while (!responseString.EndsWith("]\n"));
-
-                    }
-
-                }
-            } catch (Exception) {
-                if(server.AttachedWorker == sender as BackgroundWorker)
-                    server.Status = BukkitServer.ServerStatus.Unreachable;
-            }
-
-
-            if ((server.AttachedWorker == (BackgroundWorker)sender) && (server.Status == BukkitServer.ServerStatus.Unknown)) {
-
-                // parse the response string:
-                server.PlayerList = new List<string>();
-                string[] responseLines = responseString.Trim().Split('\n');
-
-                foreach (string thisLine in responseLines) {
-
-                    string property = thisLine.Substring(0, thisLine.IndexOf(' '));
-                    string value = thisLine.Substring(thisLine.IndexOf(' ') + 1);
-
-                    switch (property) {
-
-                        case "SERVERPORT":
-                            server.ServerPort = Int32.Parse(value);
-                            break;
-
-                        case "PLAYERCOUNT":
-                            server.PlayerCount = Int32.Parse(value);
-                            break;
-
-                        case "MAXPLAYERS":
-                            server.MaxPlayers = Int32.Parse(value);
-                            break;
-
-                        case "PLAYERLIST":
-                            // [zealotrush, silvertongue514]
-                            string[] players = value.TrimEnd(']').TrimStart('[').Split(',');
-                            foreach (string thisPlayer in players) {
-                                server.PlayerList.Add(thisPlayer.Trim());
-                            }
-                            break;
-
-                    }
-
-                }
-
-                if (server.PlayerCount >= server.MaxPlayers) {
-                    server.Status = BukkitServer.ServerStatus.Full;
-                } else server.Status = BukkitServer.ServerStatus.Online;
-
-            }
-
-        }
-
 
         private void ServersListBox_SelectedIndexChanged(object sender, EventArgs e) {
             ServersListBox.Refresh();
-            UpdateServerDetailLabels();
+            UpdateUIElements();
         }
 
 
-        private void UpdateServerDetailLabels() {
+        private void UpdateUIElements() {
 
             BukkitServer selectedServer = ServersListBox.SelectedItem as BukkitServer;
 
-            if (selectedServer == null) {
+            UpdateDetailBoxesVisibility(selectedServer);
+            UpdateToolStripButtonStates(selectedServer);
 
-                ServerInfoGroupBox.Visible = false;
-                PlayersOnlineGroupBox.Visible = false;
-                EditToolStripButton.Enabled = false;
-                RefreshToolStripButton.Enabled = false;
-                DeleteToolStripButton.Enabled = false;
+            if (selectedServer != null) {
+                UpdateServerDetailLabels(selectedServer);
+                UpdatePlayersOnlineList(selectedServer);
+            }
+            
+        }
 
-            } else {
 
-                ServerInfoGroupBox.Visible = true;
-                EditToolStripButton.Enabled = true;
-                RefreshToolStripButton.Enabled = true;
-                DeleteToolStripButton.Enabled = true;
-                HostValueLabel.Text = selectedServer.ServerAddress;
-                StatusValueLabel.Text = selectedServer.Status.ToString();
-                switch (selectedServer.Status) {
+        private void UpdatePlayersOnlineList(BukkitServer selectedServer) {
+            PlayersOnlineListBox.Items.Clear();
+            PlayersOnlineListBox.Items.AddRange(selectedServer.PlayerList.ToArray());
+        }
 
-                    case BukkitServer.ServerStatus.Full:
-                    case BukkitServer.ServerStatus.Online:
-                        PortValueLabel.Text = selectedServer.ServerPort.ToString();
-                        MaxPlayersValueLabel.Text = selectedServer.MaxPlayers.ToString();
-                        OpenSlotsValueLabel.Text = (selectedServer.MaxPlayers - selectedServer.PlayerCount).ToString();
-                        PlayersOnlineGroupBox.Visible = true;
-                        PlayersOnlineListBox.Items.Clear();
-                        PlayersOnlineListBox.Items.AddRange(selectedServer.PlayerList.ToArray());
-                        break;
 
-                    case BukkitServer.ServerStatus.Unknown:
-                        PortValueLabel.Text = "Waiting for result...";
-                        OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "Waiting for result...";
-                        PlayersOnlineGroupBox.Visible = false;
-                        break;
+        private void UpdateServerDetailLabels(BukkitServer selectedServer) {
 
-                    case BukkitServer.ServerStatus.Unreachable:
-                        PortValueLabel.Text = "Unknown";
-                        OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "N/A";
-                        PlayersOnlineGroupBox.Visible = false;
-                        break;
+            HostValueLabel.Text = selectedServer.ServerAddress;
+            StatusValueLabel.Text = selectedServer.Status.ToString();
 
-                }
-                
+            if (selectedServer.IsOnline()) {
+
+                PortValueLabel.Text = selectedServer.ServerPort.ToString();
+                MaxPlayersValueLabel.Text = selectedServer.MaxPlayers.ToString();
+                OpenSlotsValueLabel.Text = (selectedServer.MaxPlayers - selectedServer.PlayerCount).ToString();
+
+            } else if (selectedServer.Status == BukkitServer.ServerStatus.Unknown) {
+
+                PortValueLabel.Text = "Waiting for result...";
+                OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "Waiting for result...";
+
+            } else if (selectedServer.Status == BukkitServer.ServerStatus.Unreachable) {
+
+                PortValueLabel.Text = "Unknown";
+                OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "N/A";
+
             }
 
+        }
+
+
+        private void UpdateToolStripButtonStates(BukkitServer selectedServer) {
+
+            if (selectedServer == null) {
+                DisableToolStripButtons();
+            } else {
+                EnableToolStripButtons();
+            }
+
+        }
+
+
+        private void UpdateDetailBoxesVisibility(BukkitServer selectedServer) {
+
+            if (selectedServer == null) {
+                HideServerDetailBoxes();
+                return;
+            }
+
+            ShowServerInfoBox();
+
+            if (selectedServer.IsOnline()) {
+                ShowPlayersOnlineBox();
+            } else {
+                HidePlayersOnlineBox();
+            }
+
+        }
+
+
+
+        private void ShowPlayersOnlineBox() {
+            PlayersOnlineGroupBox.Visible = true;
+        }
+
+        private void ShowServerInfoBox() {
+            ServerInfoGroupBox.Visible = true;
+        }
+
+
+        private void EnableToolStripButtons() {
+
+            EditToolStripButton.Enabled = true;
+            RefreshToolStripButton.Enabled = true;
+            DeleteToolStripButton.Enabled = true;
+        }
+
+        private void DisableToolStripButtons() {
+            EditToolStripButton.Enabled = false;
+            RefreshToolStripButton.Enabled = false;
+            DeleteToolStripButton.Enabled = false;
+        }
+
+
+        private void HideServerDetailBoxes() {
+            HideServerInfoBox();
+            HidePlayersOnlineBox();
+        }
+
+        private void HidePlayersOnlineBox() {
+            PlayersOnlineGroupBox.Visible = false;
+        }
+
+        private void HideServerInfoBox() {
+            ServerInfoGroupBox.Visible = false;
         }
 
 
         private void refreshAllToolStripMenuItem_Click(object sender, EventArgs e) {
             foreach (BukkitServer server in ServersListBox.Items) {
-                RefreshServer(server);
+                server.Refresh();
             }
         }
 
 
         private void RefreshToolStripButton_Click(object sender, EventArgs e) {
-            RefreshServer(ServersListBox.SelectedItem as BukkitServer);
+            ((BukkitServer)ServersListBox.SelectedItem).Refresh();
         }
 
 
@@ -325,42 +264,31 @@ namespace BukkitQuery {
 
 
         private void SaveServerList() {
-            using (XmlTextWriter writer = new XmlTextWriter("servers.xml", Encoding.UTF8)) {
-                XmlSerializer xml = new XmlSerializer(
-                    typeof(List<BukkitServer>), 
-                    new Type[] { typeof(BukkitServer) });
-                List<BukkitServer> servers = new List<BukkitServer>();
-                foreach (BukkitServer thisServer in ServersListBox.Items) {
-                    servers.Add(thisServer);
-                }
-                xml.Serialize(writer, servers);
-            }
+            BukkitServerDataWriter.SaveServers(ServersListBox.Items);
         }
-                
-
-
-
-
-
+            
 
         private void EditToolStripButton_Click(object sender, EventArgs e) {
 
             BukkitServer serverToEdit = ServersListBox.SelectedItem as BukkitServer;
             AddServerForm addServerForm = new AddServerForm(serverToEdit.ServerName, serverToEdit.ServerAddress, serverToEdit.QueryPort);
             DialogResult editResult = addServerForm.ShowDialog(this);
+
             if (editResult == DialogResult.OK) {
                 serverToEdit.ServerName = addServerForm.ServerNameTextBox.Text;
                 serverToEdit.ServerAddress = addServerForm.IPAddressTextBox.Text;
                 serverToEdit.QueryPort = Int32.Parse(addServerForm.MinequeryPortTextBox.Text);
-                RefreshServer(serverToEdit);
+                serverToEdit.Refresh();
             }
 
         }
+
 
         private void aboutMSQTToolStripMenuItem_Click(object sender, EventArgs e) {
             AboutForm aboutForm = new AboutForm();
             aboutForm.ShowDialog();
         }
+
 
         private void ServerStatusChanged(object sender, EventArgs e) {
 
@@ -369,11 +297,13 @@ namespace BukkitQuery {
             // if we're already on that thread, this is just like using an ordinary anonymous method
             this.Invoke(
                 (MethodInvoker)delegate {
-                    if ((BukkitServer)sender != ServersListBox.SelectedItem) return;
-                    UpdateServerDetailLabels(); 
+                    ServersListBox.Refresh();
+                    if ((BukkitServer)sender == ServersListBox.SelectedItem) {
+                        UpdateUIElements();
+                    }
                 }
             );
-
+            
         }
 
     }

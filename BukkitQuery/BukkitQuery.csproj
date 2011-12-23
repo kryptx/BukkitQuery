@@ -96,6 +96,8 @@
       <DependentUpon>AboutForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Components\BukkitServer.cs" />
+    <Compile Include="Components\BukkitServerDataReader.cs" />
+    <Compile Include="Components\BukkitServerDataWriter.cs" />
     <Compile Include="Form1.cs">
       <SubType>Form</SubType>
     </Compile>
