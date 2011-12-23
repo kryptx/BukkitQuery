@@ -51,8 +51,8 @@
             this.PortLabel = new System.Windows.Forms.Label();
             this.HostLabel = new System.Windows.Forms.Label();
             this.tableLayoutPanel1 = new System.Windows.Forms.TableLayoutPanel();
-            this.PlayersOnlineListBox = new System.Windows.Forms.ListBox();
             this.PlayersOnlineGroupBox = new System.Windows.Forms.GroupBox();
+            this.PlayersOnlineListBox = new System.Windows.Forms.ListBox();
             this.toolStrip1.SuspendLayout();
             this.menuStrip1.SuspendLayout();
             this.ServerInfoGroupBox.SuspendLayout();
@@ -162,7 +162,7 @@
             // AddServerToolStripMenuItem
             // 
             this.AddServerToolStripMenuItem.Name = "AddServerToolStripMenuItem";
-            this.AddServerToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.AddServerToolStripMenuItem.Size = new System.Drawing.Size(149, 22);
             this.AddServerToolStripMenuItem.Text = "Add Server...";
             this.AddServerToolStripMenuItem.Click += new System.EventHandler(this.AddServerTool_Click);
             // 
@@ -170,19 +170,19 @@
             // 
             this.refreshAllToolStripMenuItem.Name = "refreshAllToolStripMenuItem";
             this.refreshAllToolStripMenuItem.ShortcutKeys = System.Windows.Forms.Keys.F5;
-            this.refreshAllToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.refreshAllToolStripMenuItem.Size = new System.Drawing.Size(149, 22);
             this.refreshAllToolStripMenuItem.Text = "Refresh All";
             this.refreshAllToolStripMenuItem.Click += new System.EventHandler(this.refreshAllToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(149, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(146, 6);
             // 
             // ExitToolStripMenuItem
             // 
             this.ExitToolStripMenuItem.Name = "ExitToolStripMenuItem";
-            this.ExitToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
+            this.ExitToolStripMenuItem.Size = new System.Drawing.Size(149, 22);
             this.ExitToolStripMenuItem.Text = "Exit MSQT";
             this.ExitToolStripMenuItem.Click += new System.EventHandler(this.ExitToolStripMenuItem_Click);
             // 
@@ -337,18 +337,6 @@
             this.tableLayoutPanel1.Size = new System.Drawing.Size(457, 385);
             this.tableLayoutPanel1.TabIndex = 5;
             // 
-            // PlayersOnlineListBox
-            // 
-            this.PlayersOnlineListBox.BackColor = System.Drawing.SystemColors.Control;
-            this.PlayersOnlineListBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.PlayersOnlineListBox.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.PlayersOnlineListBox.FormattingEnabled = true;
-            this.PlayersOnlineListBox.Location = new System.Drawing.Point(3, 16);
-            this.PlayersOnlineListBox.Name = "PlayersOnlineListBox";
-            this.PlayersOnlineListBox.Size = new System.Drawing.Size(263, 155);
-            this.PlayersOnlineListBox.Sorted = true;
-            this.PlayersOnlineListBox.TabIndex = 0;
-            // 
             // PlayersOnlineGroupBox
             // 
             this.PlayersOnlineGroupBox.Controls.Add(this.PlayersOnlineListBox);
@@ -360,6 +348,18 @@
             this.PlayersOnlineGroupBox.TabStop = false;
             this.PlayersOnlineGroupBox.Text = "Players Online";
             this.PlayersOnlineGroupBox.Visible = false;
+            // 
+            // PlayersOnlineListBox
+            // 
+            this.PlayersOnlineListBox.BackColor = System.Drawing.SystemColors.Control;
+            this.PlayersOnlineListBox.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.PlayersOnlineListBox.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.PlayersOnlineListBox.FormattingEnabled = true;
+            this.PlayersOnlineListBox.Location = new System.Drawing.Point(3, 16);
+            this.PlayersOnlineListBox.Name = "PlayersOnlineListBox";
+            this.PlayersOnlineListBox.Size = new System.Drawing.Size(263, 155);
+            this.PlayersOnlineListBox.Sorted = true;
+            this.PlayersOnlineListBox.TabIndex = 0;
             // 
             // MainWindow
             // 

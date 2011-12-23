@@ -12,6 +12,8 @@ using System.Windows.Forms;
 using System.Xml;
 using System.Xml.Serialization;
 
+using BukkitQuery.Components;
+
 namespace BukkitQuery {
 
     public partial class MainWindow : Form {
@@ -19,74 +21,123 @@ namespace BukkitQuery {
         public MainWindow() {
             InitializeComponent();
             LoadServerList();
+            AttachEventListeners();  // is there a race condition here?
         }
 
-        void ServersListBox_DrawItem(object sender, DrawItemEventArgs e) {
 
-            if (e.Index >= 0) {
-                
-                Brush myBrush;
-                e.DrawBackground();
-                MinecraftServer thisServer = (MinecraftServer)ServersListBox.Items[e.Index];
-                if (thisServer == (MinecraftServer)ServersListBox.SelectedItem) {
-                    e.Graphics.FillRectangle(new SolidBrush(Color.LightBlue), e.Bounds);
-                }
-                
-                switch (thisServer.Status) {
+        private void LoadServerList() {
 
-                    case MinecraftServer.ServerStatus.Online:
-                        myBrush = Brushes.DarkGreen;
-                        break;
+            List<BukkitServer> servers = ReadServersFromXml();
+            PopulateServersListBox(servers);
 
-                    case MinecraftServer.ServerStatus.Unknown:
-                        myBrush = Brushes.DarkBlue;
-                        break;
+        }
 
-                    case MinecraftServer.ServerStatus.Full:
-                        myBrush = Brushes.DarkOrange;
-                        break;
 
-                    case MinecraftServer.ServerStatus.Unreachable:
-                    default:
-                        myBrush = Brushes.DarkRed;
-                        break;
+        private List<BukkitServer> ReadServersFromXml() {
+
+            try {
+                using (XmlTextReader reader = new XmlTextReader("servers.xml")) {
+
+                    XmlSerializer xml = new XmlSerializer(
+                        typeof(List<BukkitServer>),
+                        new Type[] { typeof(BukkitServer) }
+                    );
+
+                    return (List<BukkitServer>)xml.Deserialize(reader);
+
                 }
 
-                e.Graphics.DrawString(thisServer.ServerName,
-                    e.Font, myBrush, e.Bounds, StringFormat.GenericDefault);
+            } catch (InvalidOperationException e) {
+                if (e.InnerException is FileNotFoundException) {
+                    return new List<BukkitServer>();
+                } else throw e;
+            }
+        }
 
-                if (thisServer.Status == MinecraftServer.ServerStatus.Full ||
-                    thisServer.Status == MinecraftServer.ServerStatus.Online) {
 
-                    string playersString = String.Format("{0} / {1}",
-                                                        thisServer.PlayerCount.ToString(),
-                                                        thisServer.MaxPlayers.ToString());
+        private void PopulateServersListBox(List<BukkitServer> servers) {
 
-                    int playersWidth = (int)System.Math.Ceiling(e.Graphics.MeasureString(playersString, e.Font).Width);
-                    int playersX = (int)(e.Bounds.Right - playersWidth);
-                    Rectangle playersRect = new Rectangle(playersX, e.Bounds.Y, playersWidth, e.Bounds.Height);
-
-                    e.Graphics.DrawString(playersString, e.Font, myBrush, playersRect, StringFormat.GenericDefault);
-                }
+            ServersListBox.Items.Clear();
+            foreach (BukkitServer thisServer in servers) {
+                ServersListBox.Items.Add(thisServer);
+                RefreshServer(thisServer);
             }
 
         }
 
-        private void RefreshServer(MinecraftServer server) {
 
-            server.Status = MinecraftServer.ServerStatus.Unknown;
-            UpdateLabels();
+        private void AttachEventListeners() {
 
-            BackgroundWorker bgw = new BackgroundWorker();
-            server.AttachedWorker = bgw;
+            foreach (object o in ServersListBox.Items) {
+                ((BukkitServer)o).StatusChanged += ServerStatusChanged;
+            }
 
-            // use a delegate method (with group syntax) for DoWork
+        }
+
+
+        void ServersListBox_DrawItem(object sender, DrawItemEventArgs e) {
+
+            var thisServer = (BukkitServer)ServersListBox.Items[e.Index];
+
+            DrawBackground(thisServer, e);
+            DrawServerName(thisServer, e);
+            DrawPlayersString(thisServer, e);
+
+        }
+
+
+        private void DrawBackground(BukkitServer thisServer, DrawItemEventArgs e) {
+
+            if (thisServer == (BukkitServer)ServersListBox.SelectedItem) {
+                e.Graphics.FillRectangle(new SolidBrush(Color.LightBlue), e.Bounds);
+            }
+
+        }
+
+
+        private static void DrawServerName(BukkitServer thisServer, DrawItemEventArgs e) {
+
+            e.Graphics.DrawString(thisServer.ServerName,
+                e.Font, thisServer.ServerBrush, e.Bounds, StringFormat.GenericDefault);
+
+        }
+
+
+        private void DrawPlayersString(BukkitServer thisServer, DrawItemEventArgs e) {
+
+            string playersString = thisServer.BuildPlayersString();
+
+            if (playersString.Length > 0) {
+
+                e.Graphics.DrawString(playersString,
+                    e.Font, thisServer.ServerBrush, CalculatePlayersRectangle(playersString, e), StringFormat.GenericDefault);
+
+            }
+
+        }
+
+
+
+        private Rectangle CalculatePlayersRectangle(string playersString, DrawItemEventArgs e) {
+
+            int playersWidth = (int)System.Math.Ceiling(e.Graphics.MeasureString(playersString, e.Font).Width);
+            int playersX = (int)(e.Bounds.Right - playersWidth);
+            return new Rectangle(playersX, e.Bounds.Y, playersWidth, e.Bounds.Height);
+
+        }
+
+
+
+        private void RefreshServer(BukkitServer server) {
+
+            server.Status = BukkitServer.ServerStatus.Unknown;
+
+            var bgw = server.AttachedWorker = new BackgroundWorker();
+
             bgw.DoWork += UpdateServer_DoWork;
 
-            bgw.RunWorkerCompleted += (sender, e) => {
+            bgw.RunWorkerCompleted += delegate {
                 ServersListBox.Refresh();
-                if (server == ServersListBox.SelectedItem)
-                    UpdateLabels();
             };
 
             bgw.RunWorkerAsync(server);
@@ -100,11 +151,13 @@ namespace BukkitQuery {
             DialogResult addResult = addServerForm.ShowDialog(this);
             if (addResult == DialogResult.OK) {
 
-                MinecraftServer newServer = new MinecraftServer {
+                BukkitServer newServer = new BukkitServer {
                     ServerName = addServerForm.ServerNameTextBox.Text,
                     ServerAddress = addServerForm.IPAddressTextBox.Text,
                     QueryPort = Int32.Parse(addServerForm.MinequeryPortTextBox.Text)
                 };
+
+                newServer.StatusChanged += ServerStatusChanged;
 
                 ServersListBox.Items.Add(newServer);
                 SaveServerList();
@@ -114,17 +167,21 @@ namespace BukkitQuery {
 
         }
 
+
         private void ExitToolStripMenuItem_Click(object sender, EventArgs e) {
             this.Close();
         }
 
+
         private void UpdateServer_DoWork(object sender, DoWorkEventArgs e) {
 
-            MinecraftServer server = e.Argument as MinecraftServer;
+            // prepare local variables
+            BukkitServer server = (BukkitServer)e.Argument;
             byte[] data = Encoding.ASCII.GetBytes("QUERY\n");
             byte[] receiveBuffer = new byte[256];
             string responseString = "";
 
+            // send the request, and receive the response
             try {
                 using (TcpClient client = new TcpClient(server.ServerAddress, server.QueryPort)) {
 
@@ -142,10 +199,11 @@ namespace BukkitQuery {
                 }
             } catch (Exception) {
                 if(server.AttachedWorker == sender as BackgroundWorker)
-                    server.Status = MinecraftServer.ServerStatus.Unreachable;
+                    server.Status = BukkitServer.ServerStatus.Unreachable;
             }
 
-            if ((server.AttachedWorker == sender as BackgroundWorker) && (server.Status == MinecraftServer.ServerStatus.Unknown)) {
+
+            if ((server.AttachedWorker == (BackgroundWorker)sender) && (server.Status == BukkitServer.ServerStatus.Unknown)) {
 
                 // parse the response string:
                 server.PlayerList = new List<string>();
@@ -183,21 +241,23 @@ namespace BukkitQuery {
                 }
 
                 if (server.PlayerCount >= server.MaxPlayers) {
-                    server.Status = MinecraftServer.ServerStatus.Full;
-                } else server.Status = MinecraftServer.ServerStatus.Online;
+                    server.Status = BukkitServer.ServerStatus.Full;
+                } else server.Status = BukkitServer.ServerStatus.Online;
 
             }
 
         }
 
+
         private void ServersListBox_SelectedIndexChanged(object sender, EventArgs e) {
             ServersListBox.Refresh();
-            UpdateLabels();
+            UpdateServerDetailLabels();
         }
 
-        private void UpdateLabels() {
 
-            MinecraftServer selectedServer = ServersListBox.SelectedItem as MinecraftServer;
+        private void UpdateServerDetailLabels() {
+
+            BukkitServer selectedServer = ServersListBox.SelectedItem as BukkitServer;
 
             if (selectedServer == null) {
 
@@ -217,8 +277,8 @@ namespace BukkitQuery {
                 StatusValueLabel.Text = selectedServer.Status.ToString();
                 switch (selectedServer.Status) {
 
-                    case MinecraftServer.ServerStatus.Full:
-                    case MinecraftServer.ServerStatus.Online:
+                    case BukkitServer.ServerStatus.Full:
+                    case BukkitServer.ServerStatus.Online:
                         PortValueLabel.Text = selectedServer.ServerPort.ToString();
                         MaxPlayersValueLabel.Text = selectedServer.MaxPlayers.ToString();
                         OpenSlotsValueLabel.Text = (selectedServer.MaxPlayers - selectedServer.PlayerCount).ToString();
@@ -227,13 +287,13 @@ namespace BukkitQuery {
                         PlayersOnlineListBox.Items.AddRange(selectedServer.PlayerList.ToArray());
                         break;
 
-                    case MinecraftServer.ServerStatus.Unknown:
+                    case BukkitServer.ServerStatus.Unknown:
                         PortValueLabel.Text = "Waiting for result...";
                         OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "Waiting for result...";
                         PlayersOnlineGroupBox.Visible = false;
                         break;
 
-                    case MinecraftServer.ServerStatus.Unreachable:
+                    case BukkitServer.ServerStatus.Unreachable:
                         PortValueLabel.Text = "Unknown";
                         OpenSlotsValueLabel.Text = MaxPlayersValueLabel.Text = "N/A";
                         PlayersOnlineGroupBox.Visible = false;
@@ -245,57 +305,47 @@ namespace BukkitQuery {
 
         }
 
+
         private void refreshAllToolStripMenuItem_Click(object sender, EventArgs e) {
-            foreach (MinecraftServer server in ServersListBox.Items) {
+            foreach (BukkitServer server in ServersListBox.Items) {
                 RefreshServer(server);
             }
         }
 
+
         private void RefreshToolStripButton_Click(object sender, EventArgs e) {
-            RefreshServer(ServersListBox.SelectedItem as MinecraftServer);
+            RefreshServer(ServersListBox.SelectedItem as BukkitServer);
         }
+
 
         private void DeleteToolStripButton_Click(object sender, EventArgs e) {
             ServersListBox.Items.Remove(ServersListBox.SelectedItem);
             SaveServerList();
         }
 
+
         private void SaveServerList() {
             using (XmlTextWriter writer = new XmlTextWriter("servers.xml", Encoding.UTF8)) {
-                Type[] serializedTypes = { typeof(MinecraftServer) };
-                XmlSerializer xml = new XmlSerializer(typeof(List<MinecraftServer>), serializedTypes);
-                List<MinecraftServer> servers = new List<MinecraftServer>();
-                foreach (MinecraftServer thisServer in ServersListBox.Items) {
+                XmlSerializer xml = new XmlSerializer(
+                    typeof(List<BukkitServer>), 
+                    new Type[] { typeof(BukkitServer) });
+                List<BukkitServer> servers = new List<BukkitServer>();
+                foreach (BukkitServer thisServer in ServersListBox.Items) {
                     servers.Add(thisServer);
                 }
                 xml.Serialize(writer, servers);
             }
         }
-
-        private void LoadServerList() {
-
-            try {
-                using (XmlTextReader reader = new XmlTextReader("servers.xml")) {
-                    Type[] myTypes = { typeof(MinecraftServer) };
-                    XmlSerializer xml = new XmlSerializer(typeof(List<MinecraftServer>), myTypes);
-                    List<MinecraftServer> servers = (List<MinecraftServer>)xml.Deserialize(reader);
-                    ServersListBox.Items.Clear();
-                    foreach (MinecraftServer thisServer in servers) {
-                        ServersListBox.Items.Add(thisServer);
-                        RefreshServer(thisServer);
-                    }
-                }
                 
-            } catch (InvalidOperationException e) {
-                if (e.InnerException is FileNotFoundException) {
-                    // do nothing; they are probably running for the first time
-                } else throw e;
-            }
 
-        }
+
+
+
+
 
         private void EditToolStripButton_Click(object sender, EventArgs e) {
-            MinecraftServer serverToEdit = ServersListBox.SelectedItem as MinecraftServer;
+
+            BukkitServer serverToEdit = ServersListBox.SelectedItem as BukkitServer;
             AddServerForm addServerForm = new AddServerForm(serverToEdit.ServerName, serverToEdit.ServerAddress, serverToEdit.QueryPort);
             DialogResult editResult = addServerForm.ShowDialog(this);
             if (editResult == DialogResult.OK) {
@@ -304,11 +354,26 @@ namespace BukkitQuery {
                 serverToEdit.QueryPort = Int32.Parse(addServerForm.MinequeryPortTextBox.Text);
                 RefreshServer(serverToEdit);
             }
+
         }
 
         private void aboutMSQTToolStripMenuItem_Click(object sender, EventArgs e) {
             AboutForm aboutForm = new AboutForm();
             aboutForm.ShowDialog();
+        }
+
+        private void ServerStatusChanged(object sender, EventArgs e) {
+
+            // we have to use this.Invoke to make sure this code runs in the control's thread context
+            // because the status can be changed on a different thread
+            // if we're already on that thread, this is just like using an ordinary anonymous method
+            this.Invoke(
+                (MethodInvoker)delegate {
+                    if ((BukkitServer)sender != ServersListBox.SelectedItem) return;
+                    UpdateServerDetailLabels(); 
+                }
+            );
+
         }
 
     }
