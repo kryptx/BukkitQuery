@@ -43,7 +43,7 @@ namespace BukkitQuery {
         }
 
 
-        void ServersListBox_DrawItem(object sender, DrawItemEventArgs e) {
+        internal void ServersListBox_DrawItem(object sender, DrawItemEventArgs e) {
 
             var thisServer = (BukkitServer)ServersListBox.Items[e.Index];
 
@@ -63,7 +63,7 @@ namespace BukkitQuery {
         }
 
 
-        private static void DrawServerName(BukkitServer thisServer, DrawItemEventArgs e) {
+        private void DrawServerName(BukkitServer thisServer, DrawItemEventArgs e) {
 
             e.Graphics.DrawString(thisServer.ServerName,
                 e.Font, thisServer.ServerBrush, e.Bounds, StringFormat.GenericDefault);
