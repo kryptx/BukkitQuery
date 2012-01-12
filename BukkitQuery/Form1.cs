@@ -139,20 +139,20 @@ namespace BukkitQuery {
             UpdateToolStripButtonStates(selectedServer);
 
             if (selectedServer != null) {
-                UpdateServerDetailLabels(selectedServer);
-                UpdatePlayersOnlineList(selectedServer);
+                UpdateServerDetails(selectedServer);
+                UpdatePlayersOnline(selectedServer);
             }
             
         }
 
 
-        private void UpdatePlayersOnlineList(BukkitServer selectedServer) {
+        private void UpdatePlayersOnline(BukkitServer selectedServer) {
             PlayersOnlineListBox.Items.Clear();
             PlayersOnlineListBox.Items.AddRange(selectedServer.PlayerList.ToArray());
         }
 
 
-        private void UpdateServerDetailLabels(BukkitServer selectedServer) {
+        private void UpdateServerDetails(BukkitServer selectedServer) {
 
             HostValueLabel.Text = selectedServer.ServerAddress;
             StatusValueLabel.Text = selectedServer.Status.ToString();
@@ -212,6 +212,7 @@ namespace BukkitQuery {
             PlayersOnlineGroupBox.Visible = true;
         }
 
+
         private void ShowServerInfoBox() {
             ServerInfoGroupBox.Visible = true;
         }
@@ -223,6 +224,7 @@ namespace BukkitQuery {
             RefreshToolStripButton.Enabled = true;
             DeleteToolStripButton.Enabled = true;
         }
+
 
         private void DisableToolStripButtons() {
             EditToolStripButton.Enabled = false;
@@ -236,9 +238,11 @@ namespace BukkitQuery {
             HidePlayersOnlineBox();
         }
 
+
         private void HidePlayersOnlineBox() {
             PlayersOnlineGroupBox.Visible = false;
         }
+
 
         private void HideServerInfoBox() {
             ServerInfoGroupBox.Visible = false;
@@ -292,17 +296,12 @@ namespace BukkitQuery {
 
         private void ServerStatusChanged(object sender, EventArgs e) {
 
-            // we have to use this.Invoke to make sure this code runs in the control's thread context
-            // because the status can be changed on a different thread
-            // if we're already on that thread, this is just like using an ordinary anonymous method
-            this.Invoke(
-                (MethodInvoker)delegate {
-                    ServersListBox.Refresh();
-                    if ((BukkitServer)sender == ServersListBox.SelectedItem) {
-                        UpdateUIElements();
-                    }
+            this.BeginInvoke((MethodInvoker)delegate {
+                ServersListBox.Refresh();
+                if ((BukkitServer)sender == ServersListBox.SelectedItem) {
+                    UpdateUIElements();
                 }
-            );
+            });
             
         }
 
